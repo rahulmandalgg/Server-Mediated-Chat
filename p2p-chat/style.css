@@ -1,0 +1,88 @@
+/* Apply a dark theme */
+body {
+    background-color: #1a001a; /* Dark maroon */
+    color: white;
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+}
+
+/* Main chat container */
+.chat-container {
+    background: #2b0032; /* Deep purple */
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    width: 50%;
+    min-width: 400px;
+    max-width: 600px;
+}
+
+/* Message display area */
+.messages {
+    height: 300px;
+    overflow-y: auto;
+    border: 1px solid #444;
+    padding: 10px;
+    border-radius: 8px;
+    background: #3a003d;
+}
+
+/* Individual messages */
+.message {
+    padding: 8px;
+    margin: 5px 0;
+    border-radius: 6px;
+    max-width: 80%;
+    word-wrap: break-word;
+}
+
+/* User's own messages */
+.message.user {
+    background: #ff007f;
+    color: white;
+    text-align: right;
+    margin-left: auto;
+}
+
+/* Other users' messages */
+.message.other {
+    background: #5a005a;
+    color: white;
+    text-align: left;
+    margin-right: auto;
+}
+
+/* Input field */
+input[type="text"] {
+    width: 75%;
+    padding: 10px;
+    border: none;
+    border-radius: 6px;
+    margin-top: 10px;
+}
+
+/* Send button */
+button {
+    padding: 10px;
+    background: #ff007f;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #ff3399;
+}
+
+/* Make chat box responsive */
+@media (max-width: 768px) {
+    .chat-container {
+        width: 90%;
+        min-width: unset;
+    }
+}
