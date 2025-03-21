@@ -5,12 +5,14 @@ const WS_URL = `ws://${window.location.hostname}:8080`;
 const Chat: React.FC = () => {
   const ws = useRef<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [messages, setMessages] = useState<{ sender: string; text: string }[]>([]);
+  const [messages, setMessages] = useState<{ sender: string; text: string; timestamp: string }[]>([]);
   const [input, setInput] = useState("");
   const [username, setUsername] = useState("");
   const [hasUsername, setHasUsername] = useState(false);
   const [room, setRoom] = useState("");
   const [joinedRoom, setJoinedRoom] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
 
   useEffect(() => {
     if (!joinedRoom || ws.current) return;
@@ -24,10 +26,17 @@ const Chat: React.FC = () => {
       ws.current?.send(JSON.stringify({ type: "join", room }));
     };
 
+
     ws.current.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
         console.log("📩 New message:", message);
+    
+        // Ensure timestamp exists
+        if (!message.timestamp) {
+          message.timestamp = new Date().toISOString();
+        }
+    
         setMessages((prev) => [...prev, message]);
       } catch (error) {
         console.error("❌ Error parsing message:", error);
@@ -46,6 +55,10 @@ const Chat: React.FC = () => {
     };
   }, [joinedRoom]);
 
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
   const sendMessage = () => {
     if (!ws.current || ws.current.readyState !== WebSocket.OPEN) {
       console.log("⚠️ WebSocket not connected.");
@@ -60,6 +73,11 @@ const Chat: React.FC = () => {
     }
   };
 
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
+
   return (
     <div style={styles.container}>
       <div style={styles.chatBox}>
@@ -70,6 +88,7 @@ const Chat: React.FC = () => {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && username.trim() !== "" && setHasUsername(true)}
               placeholder="Enter your name"
               style={styles.input}
             />
@@ -88,6 +107,7 @@ const Chat: React.FC = () => {
               type="text"
               value={room}
               onChange={(e) => setRoom(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && room.trim() !== "" && setJoinedRoom(true)}
               placeholder="Enter room name"
               style={styles.input}
             />
@@ -106,34 +126,37 @@ const Chat: React.FC = () => {
             </h3>
             <div style={styles.messagesContainer}>
             {messages.map((msg, index) => {
-    const isSender = msg.sender === username;
-    return (
-      <div
-        key={index}
-        style={{
-          background: isSender ? "#ff0080" : "#4d004d", // Different colors for sender & receiver
-          color: "white",
-          padding: "10px",
-          borderRadius: "10px",
-          marginBottom: "8px",
-          maxWidth: "75%",
-          alignSelf: isSender ? "flex-end" : "flex-start",
-          textAlign: "left",
-          wordWrap: "break-word",
-          display: "inline-block", // Ensures proper message box formatting
-          fontWeight: "bold",
-        }}
-      >
-        {msg.sender}: <span style={{ fontWeight: "normal" }}>{msg.text}</span>
-      </div>
-    );
-  })}
+            const isSender = msg.sender === username;
+            return (
+              <div
+                key={index}
+                style={{
+                  ...styles.messageBubble,
+                  background: isSender ? "#ff0080" : "#4d004d", // Different colors for sender & receiver
+                  color: "white",
+                  padding: "10px",
+                  borderRadius: "10px",
+                  marginBottom: "8px",
+                  maxWidth: "75%",
+                  alignSelf: isSender ? "flex-end" : "flex-start",
+                  textAlign: "left",
+                  wordWrap: "break-word",
+                  display: "inline-block", // Ensures proper message box formatting
+                  fontWeight: "bold",
+                }}>
+                <div style={{ fontSize: "12px", opacity: 0.7 }}>{formatTime(msg.timestamp)}</div>
+                {msg.sender}: <span style={{ fontWeight: "normal" }}>{msg.text}</span>
+              </div>
+            );
+          })}
+          <div ref={messagesEndRef} />
             </div>
             <div style={styles.inputSection}>
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && sendMessage()}
                 placeholder="Type a message..."
                 style={styles.chatInput}
               />

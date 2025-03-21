@@ -33,6 +33,7 @@ wss.on("connection", (ws: WebSocket) => {
         const msgData = JSON.stringify({
           sender: message.sender,
           text: message.text,
+          timestamp: new Date().toISOString(),
         });
 
         // Send message only to users in the same room
