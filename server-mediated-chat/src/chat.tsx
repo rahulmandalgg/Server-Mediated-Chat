@@ -183,7 +183,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   chatBox: {
     width: "100%",
-    maxWidth: "450px",
+    maxWidth: "600px",
     background: "#3b003b",
     borderRadius: "10px",
     boxShadow: "0px 4px 10px rgba(0,0,0,0.3)",
@@ -221,7 +221,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: "pointer",
   },
   messagesContainer: {
-    height: "300px",
+    height: "400px",
     overflowY: "auto",
     width: "100%",
     display: "flex",
