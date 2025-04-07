@@ -1,4 +1,6 @@
 import { WebSocketServer, WebSocket } from "ws";
+import { serve } from "bun";
+
 
 const wss = new WebSocketServer({ host: "0.0.0.0", port: 8080 });
 
@@ -10,7 +12,7 @@ const rooms: { [roomName: string]: Set<WebSocket> } = {};
 wss.on("connection", (ws: WebSocket) => {
   console.log("🔗 New client connected");
 
-  let userRoom: string | null = null; // Allow null initially
+  let userRoom: string | null = null;
 
   ws.on("message", (data: string) => {
     try {
@@ -20,11 +22,11 @@ wss.on("connection", (ws: WebSocket) => {
       if (message.type === "join" && typeof message.room === "string") {
         userRoom = message.room.trim();
 
-        if (!rooms[userRoom as string]) {  // 🔥 Explicit type assertion
-          rooms[userRoom as string] = new Set();
+        if (!rooms[userRoom]) {
+          rooms[userRoom] = new Set();
         }
 
-        rooms[userRoom as string].add(ws);
+        rooms[userRoom].add(ws);
         console.log(`🏠 User joined room: ${userRoom}`);
         return;
       }
@@ -36,27 +38,70 @@ wss.on("connection", (ws: WebSocket) => {
           timestamp: new Date().toISOString(),
         });
 
-        // Send message only to users in the same room
-        rooms[userRoom as string]?.forEach((client) => {
+        rooms[userRoom]?.forEach((client) => {
           if (client.readyState === WebSocket.OPEN) {
             client.send(msgData);
           }
         });
       }
+
     } catch (error) {
       console.error("❌ Error parsing message:", error);
     }
   });
 
   ws.on("close", () => {
-    if (userRoom && rooms[userRoom as string]) {
-      rooms[userRoom as string].delete(ws);
+    if (userRoom && rooms[userRoom]) {
+      rooms[userRoom].delete(ws);
 
-      // Remove empty room
-      if (rooms[userRoom as string].size === 0) {
-        delete rooms[userRoom as string];
+      if (rooms[userRoom].size === 0) {
+        delete rooms[userRoom];
       }
       console.log(`❌ Client disconnected from room: ${userRoom}`);
     }
   });
 });
+
+// HTTP server for active rooms
+serve({
+  port: 8081,
+  fetch(req) {
+    const url = new URL(req.url);
+
+    // Handle CORS preflight requests
+    if (req.method === "OPTIONS") {
+      return new Response(null, {
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        },
+      });
+    }
+
+    if (url.pathname === "/active-rooms" && req.method === "GET") {
+      const activeRooms = Object.keys(rooms).map((room) => ({
+        room,
+        clients: rooms[room].size,
+      }));
+      console.log("Sending active rooms with CORS headers...");
+      return new Response(JSON.stringify(activeRooms), {
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*", // Allow all origins
+        },
+      });
+    }
+
+    // Upgrade WebSocket connection
+    if (url.pathname === "/ws" && req.headers.get("upgrade") === "websocket") {
+      const { socket, response } = Bun.upgradeWebSocket(req);
+      wss.emit("connection", socket);
+      return response;
+    }
+
+    return new Response("Not Found", { status: 404 });
+  },
+});
+
+

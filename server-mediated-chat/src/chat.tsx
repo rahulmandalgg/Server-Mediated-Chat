@@ -11,7 +11,47 @@ const Chat: React.FC = () => {
   const [hasUsername, setHasUsername] = useState(false);
   const [room, setRoom] = useState("");
   const [joinedRoom, setJoinedRoom] = useState(false);
+  const [activeRooms, setActiveRooms] = useState<{ room: string; clients: number }[]>([]);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  // useEffect(() => {
+  //   if (ws.current) return; // Prevent multiple connections
+  
+  //   console.log("🔄 Connecting to WebSocket...");
+  //   ws.current = new WebSocket(WS_URL);
+  
+  //   ws.current.onopen = () => {
+  //     console.log("✅ Connected to WebSocket!");
+  //     setIsConnected(true);
+  //   };
+  
+  //   ws.current.onmessage = (event) => {
+  //     try {
+  //       const message = JSON.parse(event.data);
+  //       console.log("📩 New message:", message);
+  
+  //       if (message.type === "list") {
+  //         console.log("Received active rooms:", message.rooms);
+  //         setActiveRooms(message.rooms);
+  //       } else if (message.sender && message.text) {
+  //         setMessages((prev) => [...prev, message]);
+  //       }
+  //     } catch (error) {
+  //       console.error("❌ Error parsing message:", error);
+  //     }
+  //   };
+  
+  //   ws.current.onerror = (err) => console.error("❌ WebSocket Error:", err);
+  //   ws.current.onclose = () => {
+  //     console.log("❌ WebSocket Disconnected!");
+  //     setIsConnected(false);
+  //   };
+  
+  //   return () => {
+  //     ws.current?.close();
+  //     ws.current = null;
+  //   };
+  // }, []);
 
 
   useEffect(() => {
@@ -26,18 +66,17 @@ const Chat: React.FC = () => {
       ws.current?.send(JSON.stringify({ type: "join", room }));
     };
 
-
     ws.current.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
         console.log("📩 New message:", message);
-    
-        // Ensure timestamp exists
-        if (!message.timestamp) {
-          message.timestamp = new Date().toISOString();
+
+        if (message.type === "list") {
+          console.log("Received active rooms:", message.rooms);
+          setActiveRooms(message.rooms);
+        } else if (message.sender && message.text) {
+          setMessages((prev) => [...prev, message]);
         }
-    
-        setMessages((prev) => [...prev, message]);
       } catch (error) {
         console.error("❌ Error parsing message:", error);
       }
@@ -58,6 +97,50 @@ const Chat: React.FC = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    console.log("Active Rooms:", activeRooms);
+  }, [activeRooms]);
+
+  // const joinRoom = () => {
+  //   if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+  //     ws.current.send(JSON.stringify({ type: "join", room }));
+  //     setJoinedRoom(true);
+  //     console.log(`🚪 Joined room: ${room}`);
+  //   } else {
+  //     console.log("⚠️ WebSocket is not open. Cannot join room.");
+  //   }
+  // };
+
+  const fetchActiveRooms = async () => {
+    try {
+      console.log("Fetching active rooms...");
+      const response = await fetch(`http://${window.location.hostname}:8081/active-rooms`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      if (response.ok) {
+        const rooms = await response.json();
+        console.log("Received active rooms:", rooms);
+        setActiveRooms(rooms);
+      } else {
+        console.error("Failed to fetch active rooms:", response.statusText);
+      }
+    } catch (error) {
+      console.error("Error fetching active rooms:", error);
+    }
+  };
+
+//   const fetchActiveRooms = () => {
+//   if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+//     console.log("Fetching active rooms...");
+//     ws.current.send(JSON.stringify({ type: "list" }));
+//   } else {
+//     console.log("⚠️ WebSocket is not open. Cannot fetch active rooms.");
+//   }
+// };
 
   const sendMessage = () => {
     if (!ws.current || ws.current.readyState !== WebSocket.OPEN) {
@@ -118,6 +201,20 @@ const Chat: React.FC = () => {
             >
               Join Room
             </button>
+            <button onClick={fetchActiveRooms} style={{ ...styles.button, marginTop: "10px" }}>
+            Show Active Rooms
+          </button>
+          <div style={styles.activeRooms}>
+            {activeRooms.length > 0 ? (
+              activeRooms.map((r, index) => (
+                <div key={index} style={styles.roomItem}>
+                  {r.room} ({r.clients} clients)
+                </div>
+              ))
+            ) : (
+              <div>No active rooms available.</div>
+            )}
+          </div>
           </div>
         ) : (
           <>
@@ -125,31 +222,24 @@ const Chat: React.FC = () => {
               Welcome, {username}! (Room: {room})
             </h3>
             <div style={styles.messagesContainer}>
-            {messages.map((msg, index) => {
-            const isSender = msg.sender === username;
-            return (
-              <div
-                key={index}
-                style={{
-                  ...styles.messageBubble,
-                  background: isSender ? "#ff0080" : "#4d004d", // Different colors for sender & receiver
-                  color: "white",
-                  padding: "10px",
-                  borderRadius: "10px",
-                  marginBottom: "8px",
-                  maxWidth: "75%",
-                  alignSelf: isSender ? "flex-end" : "flex-start",
-                  textAlign: "left",
-                  wordWrap: "break-word",
-                  display: "inline-block", // Ensures proper message box formatting
-                  fontWeight: "bold",
-                }}>
-                <div style={{ fontSize: "12px", opacity: 0.7 }}>{formatTime(msg.timestamp)}</div>
-                {msg.sender}: <span style={{ fontWeight: "normal" }}>{msg.text}</span>
-              </div>
-            );
-          })}
-          <div ref={messagesEndRef} />
+              {messages.map((msg, index) => (
+                <div
+                  key={index}
+                  style={{
+                    ...styles.messageBubble,
+                    alignSelf: msg.sender === username ? "flex-end" : "flex-start", // Align sent messages to the right
+                    background: msg.sender === username ? "#ff0080" : "#4d004d", // Different background colors
+                  }}
+                >
+                  <div style={styles.messageHeader}>
+                  <span style={styles.sender}>{msg.sender}:</span>
+                  <span style={styles.messageText}>{msg.text}</span>
+                  <span></span>
+                  <div style={styles.timestamp}>{formatTime(msg.timestamp)}</div>
+                </div>
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
             </div>
             <div style={styles.inputSection}>
               <input
@@ -171,7 +261,7 @@ const Chat: React.FC = () => {
   );
 };
 
-// Styling
+// Add styles for active rooms
 const styles: { [key: string]: React.CSSProperties } = {
   container: {
     display: "flex",
@@ -238,15 +328,22 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: "white",
     display: "flex",
     flexDirection: "column",
+    wordBreak: "break-word", // Ensure long messages wrap properly
   },
   sender: {
-    fontSize: "12px",
+    fontSize: "14px",
     fontWeight: "bold",
-    opacity: 0.8,
+    opacity: 0.9,
   },
   messageText: {
     fontSize: "14px",
+    marginTop: "0", // Remove extra spacing
+  },
+  timestamp: {
+    fontSize: "12px",
+    color: "#cccccc", // Lighter color for the timestamp
     marginTop: "5px",
+    alignSelf: "flex-end", // Align timestamp to the right
   },
   inputSection: {
     display: "flex",
@@ -271,6 +368,21 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: "white",
     fontSize: "16px",
     cursor: "pointer",
+  },
+  activeRooms: {
+    marginTop: "20px",
+    padding: "10px",
+    background: "#4d004d",
+    borderRadius: "5px",
+    color: "white",
+  },
+  roomItem: {
+    marginBottom: "5px",
+  },
+  messageHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: "5px", // Add spacing between the name and message
   },
 };
 
